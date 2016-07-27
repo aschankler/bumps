@@ -14,7 +14,7 @@ EPS = 1e-6
 _SNOOKER, _DE, _DIRECT = 0, 1, 2
 
 
-def de_step(Nchain, pop, CR, max_pairs=2, eps=0.05,
+def de_step(chains, pop, CR, max_pairs=2, eps=0.05,
             snooker_rate=0.1, noise=1e-6, scale=1.0):
     """
     Generates offspring using METROPOLIS HASTINGS monte-carlo markov chain
@@ -23,6 +23,7 @@ def de_step(Nchain, pop, CR, max_pairs=2, eps=0.05,
     population is selected from both the current generation and the
     ancestors.
     """
+    Nchain = len(chains)
     Npop, Nvar = pop.shape
 
     # Initialize the delta update to zero
@@ -48,8 +49,9 @@ def de_step(Nchain, pop, CR, max_pairs=2, eps=0.05,
             # [PAK: same as k = DEversion[qq, 1] in matlab version]
 
             # Select 2*k members at random different from the current member
-            perm = draw(2*k, Npop-1)
-            perm[perm >= qq] += 1
+            #perm = draw(2*k, Npop-1)
+            #perm[perm >= qq] += 1
+            perm = draw(2*k, Npop)
             r1, r2 = perm[:k], perm[k:2*k]
 
             # Select the dims to update based on the crossover ratio, making
@@ -74,9 +76,10 @@ def de_step(Nchain, pop, CR, max_pairs=2, eps=0.05,
         elif alg[qq] == _SNOOKER:  # Use snooker update
 
             # Select current and three others
-            perm = draw(3, Npop-1)
-            perm[perm >= qq] += 1
-            xi = pop[qq]
+            #perm = draw(3, Npop-1)
+            #perm[perm >= qq] += 1
+            perm = draw(3, Npop)
+            xi = chains[qq]
             z, R1, R2 = [pop[i] for i in perm]
 
             # Find the step direction and scale it to the length of the
@@ -99,8 +102,9 @@ def de_step(Nchain, pop, CR, max_pairs=2, eps=0.05,
         elif alg[qq] == _DIRECT:  # Use one pair and all dimensions
 
             # Note that there is no F scaling, dimension selection or noise
-            perm = draw(2, Npop-1)
-            perm[perm >= qq] += 1
+            #perm = draw(2, Npop-1)
+            #perm[perm >= qq] += 1
+            perm = draw(2, Npop)
             delta_x[qq, :] = pop[perm[0], :] - pop[perm[1], :]
 
         else:
@@ -133,7 +137,7 @@ def de_step(Nchain, pop, CR, max_pairs=2, eps=0.05,
     #x_new = pop[:Nchain] + delta_x + scale*noise*rng.randn(Nchain, Nvar)
 
     # relative noise
-    x_new = pop[:Nchain] * (1 + scale*noise*rng.randn(Nchain, Nvar)) + delta_x
+    x_new = chains[:Nchain] * (1 + scale*noise*rng.randn(Nchain, Nvar)) + delta_x
 
     # no noise
     #x_new = pop[:Nchain] + delta_x

@@ -287,11 +287,11 @@ def run_dream(dream, abort_test=lambda: False):
 
             # Define the current locations and associated posterior densities
             xold, logp_old = x, logp
-            pop = state._draw_pop()
+            pop = state._draw_archive()
 
             # Generate candidates for each sequence
             xtry, step_alpha, used \
-                = de_step(n_chain, pop, dream.CR[gen],
+                = de_step(x, pop, dream.CR[gen],
                           max_pairs=dream.DE_pairs,
                           eps=dream.DE_eps,
                           snooker_rate=dream.DE_snooker_rate,
@@ -423,10 +423,14 @@ def allocate_state(dream):
     n_gen = n_update * steps
     n_thin = int(n_gen/thinning) + 1
     #print n_gen, n_thin, n_update, draws, steps, Npop, n_var
+    
+    # TODO propagate these
+    archive_thin = 5
+    n_archive = n_chain*((n_thin//archive_thin) + 1)
 
     if dream.state is not None:
         dream.state.resize(
             n_gen, n_thin, n_update, n_var, n_chain, n_cr, thinning)
     else:
         dream.state = MCMCDraw(
-            n_gen, n_thin, n_update, n_var, n_chain, n_cr, thinning)
+            n_gen, n_thin, n_update, n_var, n_chain, n_cr, n_archive, thinning, archive_thin)

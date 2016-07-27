@@ -268,7 +268,7 @@ class MCMCDraw(object):
         """Number of parameters in the fit"""
         return self._thin_point.shape[2]
 
-    def __init__(self, Ngen, Nthin, Nupdate, Nvar, Npop, Ncr, thinning):
+    def __init__(self, Ngen, Nthin, Nupdate, Nvar, Npop, Ncr, Narchive, thinning, archive_thin):
         # Total number of draws so far
         self.draws = 0
 
@@ -306,6 +306,13 @@ class MCMCDraw(object):
         self._update_R_stat = empty((Nupdate, Nvar) )
         self._update_CR_weight = empty((Nupdate, Ncr))
 
+        # Population archive for DE steps
+        self.archive_thin = archive_thin
+        self._archive_index = 0
+        self._archive_count = 0
+        self._archive_timer = 0
+        self._archive_points = empty((Narchive, Nvar))
+
         self._outliers = []
 
         # Query functions will not return outlier chains; initially, all
@@ -336,6 +343,10 @@ class MCMCDraw(object):
     @property
     def Ncr(self):
         return self._update_CR_weight.shape[1]
+
+    @property
+    def Narchive(self):
+        return self._archive_points.shape[0]
 
     def resize(self, Ngen, Nthin, Nupdate, Nvar, Npop, Ncr, thinning):
         if self.Nvar != Nvar or self.Npop != Npop or self.Ncr != Ncr:
@@ -447,6 +458,25 @@ class MCMCDraw(object):
         else:
             self._gen_current = x+0 # force a copy
 
+        # Update the archive
+        self._archive_timer += 1
+        if self._archive_timer == self.thinning*self.archive_thin or force_keep:
+            self._archive_timer = 0
+            self._archive_count += len(x)
+            i = self._archive_index
+            try:
+                self._archive_points[i:i+len(x)] = x
+            except ValueError:
+                j = self.Narchive - i
+                self._archive_points[i:i+len(x)] = x[:j]
+                i = len(x) - j
+                self._archive_points[:i] = x[j:]
+            else:
+                i = i + len(x)
+                i = i if i < self.Narchive else i - self.Narchive
+
+            self._archive_index = i
+
     def _update(self, R_stat, CR_weight):
         """
         Called from dream.py when a series of DE steps is completed and
@@ -531,6 +561,23 @@ class MCMCDraw(object):
             perm[perm>=cursor] += Nchain
             #print("perm", perm; raw_input('wait'))
             pop[Nchain:] = points[perm]
+
+        return pop
+
+    def _draw_archive(self, Npop=None):
+        pool_size = min(self._archive_count, self.Narchive)
+
+        if Npop is not None:
+            assert(Npop <= pool_size)
+
+        Npop = pool_size if Npop is None else Npop
+
+        if Npop == pool_size:
+            pop = self._archive_points[:pool_size]
+        else:
+            # Must draw a subsample
+            perm = draw(pool_size, Npop)
+            pop = self._archive_points[perm]
 
         return pop
 
